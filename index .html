@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Accelerometer Reader</title>
+<style>
+  body   { font-family: sans-serif; margin: 16px; background: #f4f6f8; }
+  button { padding: 12px 20px; font-size: 16px; border: 0; border-radius: 8px; background: #1565c0; color: #fff; }
+  table  { border-collapse: collapse; margin-top: 12px; background: #fff; }
+  th, td { border: 1px solid #ccc; padding: 6px 10px; text-align: right; }
+  canvas { width: 100%; max-width: 480px; background: #fff; border: 1px solid #ccc; margin-top: 12px; }
+</style>
+</head>
+<body>
+<h2>Smartphone Accelerometer Reader</h2>
+<button id="startBtn">Start reading sensor</button>
+<p id="status">Status: not started</p>
+<table>
+  <tr><th></th><th>x</th><th>y</th><th>z</th></tr>
+  <tr><th>Acceleration (m/s²)</th><td id="ax">-</td><td id="ay">-</td><td id="az">-</td></tr>
+  <tr><th>With gravity (m/s²)</th><td id="gx">-</td><td id="gy">-</td><td id="gz">-</td></tr>
+  <tr><th>Rotation rate (°/s)</th><td id="rx">-</td><td id="ry">-</td><td id="rz">-</td></tr>
+</table>
+<canvas id="chart" width="480" height="160"></canvas>
+<p>Chart: acceleration with gravity, <b style="color:#d32f2f">x</b> <b style="color:#388e3c">y</b> <b style="color:#1565c0">z</b></p>
+
+<script>
+const MAX_POINTS = 120;   // how many recent readings the chart keeps
+const history = [];       // recent readings: {x, y, z}
+let samples = 0;          // number of sensor readings received
+
+// Write a number into a table cell (2 decimals), or "n/a" if the phone does not provide it
+function show(id, value) {
+  document.getElementById(id).textContent = value == null ? "n/a" : value.toFixed(2);
+}
+
+// Called by the browser every time the motion sensor has a new reading (about 60 times per second)
+function handleMotion(event) {
+  const a = event.acceleration || {};                  // without gravity
+  const g = event.accelerationIncludingGravity || {};  // raw value, includes gravity
+  const r = event.rotationRate || {};                  // from the gyroscope
+  show("ax", a.x); show("ay", a.y); show("az", a.z);
+  show("gx", g.x); show("gy", g.y); show("gz", g.z);
+  show("rx", r.beta); show("ry", r.gamma); show("rz", r.alpha);
+
+  samples++;
+  document.getElementById("status").textContent =
+    `Status: reading | samples: ${samples} | interval: ${event.interval} ms`;
+  history.push({ x: g.x || 0, y: g.y || 0, z: g.z || 0 });
+  if (history.length > MAX_POINTS) history.shift();   // keep only the newest points
+  drawChart();
+}
+
+// Draw the x, y and z history as three lines (range -20...+20 m/s²)
+function drawChart() {
+  const canvas = document.getElementById("chart");
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const colors = { x: "#d32f2f", y: "#388e3c", z: "#1565c0" };
+  for (const axis of ["x", "y", "z"]) {
+    ctx.strokeStyle = colors[axis];
+    ctx.beginPath();
+    history.forEach((p, i) => {
+      const px = i * canvas.width / MAX_POINTS;
+      const py = canvas.height / 2 - p[axis] * canvas.height / 40;
+      i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+    });
+    ctx.stroke();
+  }
+}
+
+// Ask for permission (needed on iPhone) and start listening to the sensor
+async function start() {
+  const status = document.getElementById("status");
+  if (!("DeviceMotionEvent" in window)) { status.textContent = "Status: motion sensor not supported"; return; }
+  if (typeof DeviceMotionEvent.requestPermission === "function") {   // iOS 13+ only
+    const answer = await DeviceMotionEvent.requestPermission();
+    if (answer !== "granted") { status.textContent = "Status: permission denied"; return; }
+  }
+  window.addEventListener("devicemotion", handleMotion);
+  status.textContent = "Status: waiting for data...";
+  setTimeout(() => {   // a laptop has no accelerometer, so no events arrive
+    if (samples === 0) status.textContent = "Status: no data - open this page on a phone";
+  }, 3000);
+}
+
+document.getElementById("startBtn").addEventListener("click", start);
+</script>
+</body>
+</html>
