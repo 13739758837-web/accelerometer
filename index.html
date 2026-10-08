@@ -46,8 +46,9 @@ function handleMotion(event) {
   show("rx", r.beta); show("ry", r.gamma); show("rz", r.alpha);
 
   samples++;
+  const ms = event.interval < 1 ? event.interval * 1000 : event.interval;   // iPhone gives seconds, Android gives ms
   document.getElementById("status").textContent =
-    `Status: reading | samples: ${samples} | interval: ${event.interval} ms`;
+    `Status: reading | samples: ${samples} | interval: ${ms.toFixed(0)} ms`;
   history.push({ x: g.x || 0, y: g.y || 0, z: g.z || 0 });
   if (history.length > MAX_POINTS) history.shift();   // keep only the newest points
   drawChart();
