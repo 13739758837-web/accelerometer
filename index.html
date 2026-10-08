@@ -40,6 +40,7 @@ function handleMotion(event) {
   const a = event.acceleration || {};                  // without gravity
   const g = event.accelerationIncludingGravity || {};  // raw value, includes gravity
   const r = event.rotationRate || {};                  // from the gyroscope
+  if (g.x == null && a.x == null) return;   // laptops send one empty event: ignore it
   show("ax", a.x); show("ay", a.y); show("az", a.z);
   show("gx", g.x); show("gy", g.y); show("gz", g.z);
   show("rx", r.beta); show("ry", r.gamma); show("rz", r.alpha);
